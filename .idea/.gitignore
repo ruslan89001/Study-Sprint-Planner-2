@@ -1,3 +1,27 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+# Maven
+target/
+log/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+
+# Logs
+*.log
+
+# Env / local config
+.env
+.env.*
