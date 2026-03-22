@@ -1,5 +1,10 @@
 .idea/
 target/
 *.iml
+*.lst
+*.jar
+*.war
+*.log
+*.ear
 out/
 *.class
