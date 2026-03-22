@@ -4,7 +4,7 @@ import com.studysprint.taskservice.dto.*;
 import enums.GoalStatus;
 import enums.TaskStatus;
 import com.studysprint.taskservice.entity.*;
-import com.studysprint.taskservice.exception.NotFoundException;
+import com.studysprint.common.exception.NotFoundException;
 import com.studysprint.taskservice.repository.GoalRepository;
 import com.studysprint.taskservice.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;

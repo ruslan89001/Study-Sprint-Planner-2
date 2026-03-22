@@ -1,4 +1,4 @@
-package com.studysprint.taskservice.exception;
+package com.studysprint.common.exception;
 
 import lombok.Builder;
 import lombok.Data;
