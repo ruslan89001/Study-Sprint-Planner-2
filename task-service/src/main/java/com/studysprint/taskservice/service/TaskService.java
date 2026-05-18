@@ -37,4 +37,6 @@ public interface TaskService {
     List<DeadlineTaskResponse> getDeadlineSoonTasks(int days);
 
     List<DeadlineTaskResponse> getOverdueTasks();
+
+    String exportUserTasksSnapshot(Long userId);
 }

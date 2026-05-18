@@ -8,10 +8,15 @@ import com.studysprint.common.exception.NotFoundException;
 import com.studysprint.taskservice.repository.GoalRepository;
 import com.studysprint.taskservice.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import com.studysprint.common.event.TaskCreatedEvent;
+import com.studysprint.taskservice.kafka.TaskEventProducer;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -19,6 +24,8 @@ public class TaskServiceImpl implements TaskService {
 
     private final GoalRepository goalRepository;
     private final TaskRepository taskRepository;
+    private final TaskEventProducer taskEventProducer;
+    private final SnapshotStorageService snapshotStorageService;
 
     @Override
     public GoalResponse createGoal(CreateGoalRequest request) {
@@ -34,6 +41,7 @@ public class TaskServiceImpl implements TaskService {
         return mapGoal(saved);
     }
 
+    @Cacheable(value = "goalsByUserId", key = "#userId")
     @Override
     public List<GoalResponse> getGoalsByUserId(Long userId) {
         return goalRepository.findByUserId(userId)
@@ -42,6 +50,7 @@ public class TaskServiceImpl implements TaskService {
                 .toList();
     }
 
+    @Cacheable(value = "goalById", key = "#goalId")
     @Override
     public GoalResponse getGoalById(Long goalId) {
         Goal goal = goalRepository.findById(goalId)
@@ -49,6 +58,7 @@ public class TaskServiceImpl implements TaskService {
         return mapGoal(goal);
     }
 
+    @CacheEvict(value = "goalById", key = "#goalId")
     @Override
     public GoalResponse updateGoal(Long goalId, UpdateGoalRequest request) {
         Goal goal = goalRepository.findById(goalId)
@@ -63,6 +73,7 @@ public class TaskServiceImpl implements TaskService {
         return mapGoal(updated);
     }
 
+    @CacheEvict(value = "goalById", key = "#goalId")
     @Override
     public void deleteGoal(Long goalId) {
         Goal goal = goalRepository.findById(goalId)
@@ -87,9 +98,20 @@ public class TaskServiceImpl implements TaskService {
                 .build();
 
         Task saved = taskRepository.save(task);
+
+        taskEventProducer.sendTaskCreated(
+                new TaskCreatedEvent(
+                        saved.getId(),
+                        saved.getUserId(),
+                        saved.getTitle(),
+                        saved.getPriority().name()
+                )
+        );
+
         return mapTask(saved);
     }
 
+    @Cacheable(value = "tasksByGoalId", key = "#goalId")
     @Override
     public List<TaskResponse> getTasksByGoalId(Long goalId) {
         return taskRepository.findByGoalId(goalId)
@@ -98,6 +120,7 @@ public class TaskServiceImpl implements TaskService {
                 .toList();
     }
 
+    @Cacheable(value = "tasksByUserId", key = "#userId")
     @Override
     public List<TaskResponse> getTasksByUserId(Long userId) {
         return taskRepository.findByUserId(userId)
@@ -106,6 +129,7 @@ public class TaskServiceImpl implements TaskService {
                 .toList();
     }
 
+    @Cacheable(value = "taskById", key = "#taskId")
     @Override
     public TaskResponse getTaskById(Long taskId) {
         Task task = taskRepository.findById(taskId)
@@ -113,6 +137,7 @@ public class TaskServiceImpl implements TaskService {
         return mapTask(task);
     }
 
+    @CacheEvict(value = "taskById", key = "#taskId")
     @Override
     public TaskResponse updateTask(Long taskId, UpdateTaskRequest request) {
         Task task = taskRepository.findById(taskId)
@@ -129,6 +154,7 @@ public class TaskServiceImpl implements TaskService {
         return mapTask(updated);
     }
 
+    @CacheEvict(value = "taskById", key = "#taskId")
     @Override
     public TaskStatusResponse updateTaskStatus(Long taskId, UpdateTaskStatusRequest request) {
         Task task = taskRepository.findById(taskId)
@@ -143,6 +169,7 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
+    @Cacheable(value = "goalProgress", key = "#goalId")
     @Override
     public GoalProgressResponse getGoalProgress(Long goalId) {
         goalRepository.findById(goalId)
@@ -160,6 +187,7 @@ public class TaskServiceImpl implements TaskService {
                 .build();
     }
 
+    @Cacheable(value = "planningTasks", key = "#userId")
     @Override
     public List<PlanningTaskResponse> getPlanningTasks(Long userId) {
         return taskRepository.findByUserIdAndStatusIn(userId, List.of(TaskStatus.NEW, TaskStatus.IN_PROGRESS))
@@ -168,6 +196,7 @@ public class TaskServiceImpl implements TaskService {
                 .toList();
     }
 
+    @Cacheable(value = "planningTasksByGoal", key = "#userId + '-' + #goalId")
     @Override
     public List<PlanningTaskResponse> getPlanningTasksByGoal(Long userId, Long goalId) {
         return taskRepository.findByUserIdAndGoalIdAndStatusIn(userId, goalId, List.of(TaskStatus.NEW, TaskStatus.IN_PROGRESS))
@@ -176,6 +205,7 @@ public class TaskServiceImpl implements TaskService {
                 .toList();
     }
 
+    @Cacheable(value = "deadlineSoonTasks", key = "#days")
     @Override
     public List<DeadlineTaskResponse> getDeadlineSoonTasks(int days) {
         LocalDate targetDate = LocalDate.now().plusDays(days);
@@ -241,5 +271,20 @@ public class TaskServiceImpl implements TaskService {
                 .deadline(task.getDeadline())
                 .status(task.getStatus().name())
                 .build();
+    }
+
+    @Override
+    public String exportUserTasksSnapshot(Long userId) {
+        List<TaskResponse> tasks = getTasksByUserId(userId);
+
+        Map<String, Object> snapshot = Map.of(
+                "userId", userId,
+                "exportedAt", java.time.OffsetDateTime.now().toString(),
+                "taskCount", tasks.size(),
+                "tasks", tasks
+        );
+
+        String objectName = "users/%d/tasks-%d.json".formatted(userId, System.currentTimeMillis());
+        return snapshotStorageService.uploadJsonSnapshot(objectName, snapshot);
     }
 }

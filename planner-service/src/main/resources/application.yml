@@ -6,9 +6,9 @@ spring:
     name: planner-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/planner_db
+    url: jdbc:postgresql://localhost:5434/planner_db
     username: postgres
-    password: postgres
+    password: 12345678
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -19,6 +19,15 @@ spring:
       hibernate:
         format_sql: true
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: com.studysprint.common.event
+
 services:
   user-service:
     url: http://localhost:8081
@@ -26,3 +35,19 @@ services:
     url: http://localhost:8082
   notification-service:
     url: http://localhost:8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: http://localhost:4318/v1/traces
+
+logging:
+  pattern:
+    level: "%5p [${planner-service:},%X{traceId:-},%X{spanId:-}]"

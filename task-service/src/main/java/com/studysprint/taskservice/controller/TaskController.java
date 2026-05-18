@@ -4,6 +4,7 @@ import com.studysprint.taskservice.dto.*;
 import com.studysprint.taskservice.service.TaskService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -96,5 +97,11 @@ public class TaskController {
     @GetMapping("/api/internal/tasks/overdue")
     public List<DeadlineTaskResponse> getOverdueTasks() {
         return taskService.getOverdueTasks();
+    }
+
+    @PostMapping("/tasks/user/{userId}/snapshot")
+    public ResponseEntity<String> exportSnapshot(@PathVariable Long userId) {
+        String objectName = taskService.exportUserTasksSnapshot(userId);
+        return ResponseEntity.ok(objectName);
     }
 }
